@@ -1,130 +1,160 @@
 #include <stdio.h>
 #include<stdlib.h>
 #include<string.h>
-#define FILE_NAME "Users.txt"
+#define USER_FILE "Users.txt"
 
+// Structure to hold user information
 typedef struct {
-    int id;
-    char name[25];
-    int age;
+    int userId;
+    char userName[25];
+    int userAge;
 } User;
 
-void Create_User() {
-    FILE *file = fopen(FILE_NAME, "a");
+// Function to check if a file is empty
+int isFileEmpty(FILE *file) {
+    fseek(file, 0, SEEK_END);
+    if (ftell(file) == 0) {
+        fclose(file);
+        printf("No user records found\n");
+        return 1;
+    }
+    rewind(file);
+    return 0;
+}
+
+// Function to check if a given user ID already exists in the file
+int isUserIdExists(int idToCheck) {
+    FILE *file = fopen(USER_FILE, "r");
+    if (!file) return 0;
+    User user;
+    while (fscanf(file, "%d %s %d", &user.userId, user.userName, &user.userAge) != EOF) {
+        if (user.userId == idToCheck) {
+            fclose(file);
+            return 1;
+        }
+    }
+    fclose(file);
+    return 0;
+}
+
+// Function to rewrite user data common for update and delete
+void rewriteUserData(int targetId, int isUpdate) { 
+    FILE *file = fopen(USER_FILE, "r");
+    FILE *tempFile = fopen("temp.txt", "w");
+    if (!file || !tempFile) {
+        printf("Error opening files.\n");
+        return;
+    }
+    if (isFileEmpty(file)) {
+        return;
+    }
+    User user;
+    int found = 0;
+    while (fscanf(file, "%d %s %d", &user.userId, user.userName, &user.userAge) != EOF) {
+        if (user.userId == targetId) {
+            found = 1;
+            if (isUpdate) {
+                printf("Enter new name: ");
+                scanf("%s", user.userName);
+                printf("Enter new age: ");
+                scanf("%d", &user.userAge);
+
+                // Validate age before updating
+                if (user.userAge <= 0) {
+                    printf("Invalid age\n");
+                    fclose(file);
+                    fclose(tempFile);
+                    remove("temp.txt");
+                    return;
+                }
+                fprintf(tempFile, "%d %s %d\n", user.userId, user.userName, user.userAge);
+            }
+        } else {
+            // Write unchanged records to temp file
+            fprintf(tempFile, "%d %s %d\n", user.userId, user.userName, user.userAge);
+        }
+    }
+    fclose(file);
+    fclose(tempFile);
+
+    // Replace original file with updated temp file
+    remove(USER_FILE);
+    rename("temp.txt", USER_FILE);
+    if (found) {
+        if (isUpdate)
+            printf("User updated successfully\n");
+        else
+            printf("User deleted successfully\n");
+    } else {
+        printf("User with ID %d not found\n", targetId);
+    }
+}
+
+// Function to create user
+void createUser() {
+    FILE *file = fopen(USER_FILE, "a");
     if (!file) {
         printf("Error in opening file\n");
         return;
     }
-    User user;
+    User newUser;
+
+    // Get and validate unique ID
     printf("Enter user ID: ");
-    scanf("%d", &user.id);
+    scanf("%d", &newUser.userId);
+    if (isUserIdExists(newUser.userId)) {
+        printf("User ID already exists\n");
+        fclose(file);
+        return;
+    }
     printf("Enter user name: ");
-    scanf("%s", user.name);
+    scanf("%s", newUser.userName);
     printf("Enter user age: ");
-    scanf("%d", &user.age);
-    fprintf(file, "%d %s %d\n", user.id, user.name, user.age);
+    scanf("%d", &newUser.userAge);
+
+    // Validate non-negative age
+    if (newUser.userAge <= 0) {
+        printf("Invalid age\n");
+        fclose(file);
+        return;
+    }
+    fprintf(file, "%d %s %d\n", newUser.userId, newUser.userName, newUser.userAge);
     fclose(file);
     printf("User added successfully\n");
 }
 
-void Read_Users() {
-    FILE *file = fopen(FILE_NAME, "r");
+// Function to display all the user records
+void readUsers() {
+    FILE *file = fopen(USER_FILE, "r");
     if (!file) {
         printf("No records found\n");
         return;
     }
-    fseek(file, 0, SEEK_END);
-    if (ftell(file) == 0) {
-        printf("No records found\n");
-        fclose(file);
+    if (isFileEmpty(file)) {
         return;
     }
-    rewind(file);
     User user;
     printf("ID\tName\tAge\n");
-    while (fscanf(file, "%d %s %d", &user.id, user.name, &user.age) != EOF) {
-        printf("%d\t%s\t%d\n", user.id, user.name, user.age);
+    while (fscanf(file, "%d %s %d", &user.userId, user.userName, &user.userAge) != EOF) {
+        printf("%d\t%s\t%d\n", user.userId, user.userName, user.userAge);
     }
     fclose(file);
 }
 
-void Update_User() {
-    FILE *file = fopen(FILE_NAME, "r");
-    FILE *temp = fopen("temp.txt", "w");
-    if (!file || !temp) {
-        printf("Error in opening file\n");
-        return;
-    }
-    fseek(file, 0, SEEK_END);
-    if (ftell(file) == 0) {
-        printf("No records found\n");
-        fclose(file);
-        return;
-    }
-    rewind(file);
-    int id;
-    int found = 0;
-    User user;
+// Function to update an existing user's name and age
+void updateUser() {
+    int targetId;
     printf("Enter user ID to update: ");
-    scanf("%d", &id);
-    while (fscanf(file, "%d %s %d", &user.id, user.name, &user.age) != EOF) {
-        if (user.id == id) {
-            found = 1;
-            printf("Enter new name: ");
-            scanf("%s", user.name);
-            printf("Enter new age: ");
-            scanf("%d", &user.age);
-        }
-        fprintf(temp, "%d %s %d\n", user.id, user.name, user.age);
-    }
-    fclose(file);
-    fclose(temp);
-    remove(FILE_NAME);
-    rename("temp.txt", FILE_NAME);
-    if (found) {
-        printf("User updated successfully\n");
-    }
-    else {
-        printf("User with ID %d not found", id);
-    }
+    scanf("%d", &targetId);
+    rewriteUserData(targetId, 1);
 }
 
-void Delete_User() {
-    FILE *file = fopen(FILE_NAME, "r");
-    FILE *temp = fopen("temp.txt", "w");
-    if (!file || !temp) {
-        printf("Error in opening file\n");
-        return;
-    }
-    fseek(file, 0, SEEK_END);
-    if (ftell(file) == 0) {
-        printf("No records found\n");
-        fclose(file);
-        return;
-    }
-    rewind(file);
-    int id;
-    int found = 0;
-    User user;
-    printf("Enter ID to delete: ");
-    scanf("%d", &id);
-    while (fscanf(file, "%d %s %d", &user.id, user.name, &user.age) != EOF) {
-        if (user.id == id) {
-            found = 1;
-            continue;
-        }
-        fprintf(temp, "%d %s %d\n", user.id, user.name, user.age);
-    }
-    fclose(file);
-    fclose(temp);
-    remove(FILE_NAME);
-    rename("temp.txt", FILE_NAME);
-    if (found) {
-        printf("User deleted successfully\n");
-    }
-    else {
-        printf("User with ID %d not found\n", id);
-    }
+// Function to delete a user record by ID
+void deleteUser() {
+    int targetId;
+    printf("Enter user ID to delete: ");
+    scanf("%d", &targetId);
+    rewriteUserData(targetId, 0);
 }
 
 int main() {
@@ -138,16 +168,16 @@ int main() {
         scanf("%d", &choice);
         switch (choice) {
             case 1:
-                Create_User();
+                createUser();
                 break;
             case 2:
-                Read_Users();
+                readUsers();
                 break;
             case 3:
-                Update_User();
+                updateUser();
                 break;
             case 4:
-                Delete_User();
+                deleteUser();
                 break;
             case 5:
                 exit(0);
