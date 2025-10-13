@@ -1,5 +1,11 @@
 #include<stdio.h>
 #include<stdlib.h>
+#include<string.h>
+
+// Enum for Grades
+typedef enum {
+    A, B, C, D, F
+} Grade;
 
 // Structure for storing rollnumber, name and marks
 struct student {
@@ -7,6 +13,22 @@ struct student {
     char name[30];
     int marks[3];
 };
+
+// Function to convert enum Grade to character
+char gradeToChar(Grade grade) {
+    switch (grade) {
+        case A: 
+            return 'A';
+        case B: 
+            return 'B';
+        case C: 
+            return 'C';
+        case D: 
+            return 'D';
+        case F: 
+            return 'F';
+    }
+}
 
 // Function for checking all the rollnumbers are unique
 int isUniqueRollNumber(struct student students[], int count, int rollNumber) {
@@ -20,7 +42,7 @@ int isUniqueRollNumber(struct student students[], int count, int rollNumber) {
 
 // Function to calculate total for the marks scored
 int getTotal(struct student *students) {
-    if (students -> marks[0] < 0 || students -> marks[1] < 0 || students -> marks[2] < 0) {
+    if ((students -> marks[0] < 0 || students -> marks[0] > 100) || (students -> marks[1] < 0 || students -> marks[1] > 100) || (students -> marks[2] < 0 || students -> marks[3] > 100)) {
         printf("Invalid mark entered\n");
         exit(0);
     }
@@ -37,38 +59,35 @@ float getAverage(int total) {
 // Function to calculate grade for the marks scored
 char calculateGrade(float average) {
     if (average >= 85) {
-        return 'A';
+        return A;
     }
     else if (average >= 70) {
-        return 'B';
+        return B;
     }
     else if (average >= 50) {
-        return 'C';
+        return C;
     }
     else if (average >= 35) {
-        return 'D';
+        return D;
     }
     else {
-        return 'F';
+        return F;
     }
 }
 
 // Function to calculate performance based on the grades
-char* calculatePerformance(char grade) {
-    if (grade == 'A') {
-        return "*****";
-    }
-    else if (grade == 'B') {
-        return "****";
-    }
-    else if (grade == 'C') {
-        return "***";
-    }
-    else if (grade == 'D') { 
-        return "**";
-    }
-    else {
-        return "";
+char* calculatePerformance(Grade grade) {
+    switch (grade) {
+        case A:
+            return "*****";
+        case B:
+            return "****";
+        case C:
+            return "***";
+        case D:
+            return "**";
+        default:
+            return "";
     }
     
 }
@@ -85,6 +104,7 @@ void RecursiveRollNumbersSorting(int array[], int n) {
             array[i + 1] = temp;
         }
     }
+    RecursiveRollNumbersSorting(array, n-1);
 }
 
 // Function to print the rollnumbers recursively
@@ -96,48 +116,65 @@ void RecursiveRollNumberPrinting(int array[], int n, int index) {
     RecursiveRollNumberPrinting(array, n, index + 1);
 }
 
-int main() {
-    int n;
-    char string[50];
-    scanf("%d", &n);
-    if (n < 1) {
-        // input should not contain negative values or zeros
-        printf("Invalid input\n");
-        return 0;
-    }
-    int rollNumbers[n];
-    struct student newStudents[n];
+// Function to get user input 
+void inputStudents(struct student newStudents[], int rollNumbers[], int n) {
     for (int i = 0; i < n; i++) {
         scanf("%d %s %d %d %d", &newStudents[i].rollNumber, newStudents[i].name, &newStudents[i].marks[0], &newStudents[i].marks[1], &newStudents[i].marks[2]);
-        rollNumbers[i] = newStudents[i].rollNumber;
         if (!isUniqueRollNumber(newStudents, i, newStudents[i].rollNumber)) {
             printf("Roll number should be unique\n");
-            return 0;
+            exit(0);
         }
+        rollNumbers[i] = newStudents[i].rollNumber;
     }
+}
+
+// Function to display student performance
+void displayPerformance(struct student newStudents[], int n) {
     for (int i = 0; i < n; i++) {
         int total = getTotal(&newStudents[i]);
         float average = getAverage(total);
-        char grade = calculateGrade(average);
-        char* performance = calculatePerformance(grade);
-        printf("Roll: %d\n", newStudents[i].rollNumber);
+        Grade grade = calculateGrade(average);
+        const char *performance = calculatePerformance(grade);
+
+        printf("Roll No: %d\n", newStudents[i].rollNumber);
         printf("Name: %s\n", newStudents[i].name);
         printf("Total: %d\n", total);
         printf("Average: %.2f\n", average);
-        printf("Grade: %c\n", grade);
-        if (grade !='F') {
-            printf("performance: %s\n", performance);
+        printf("Grade: %c\n", gradeToChar(grade));
+        if (grade != F) {
+            printf("Performance: %s\n", performance);
         }
         printf("\n");
     }
+}
+
+// Function to print all roll numbers
+void displayRollNumbers(int rollNumbers[], int n) {
     printf("List of Roll Numbers: ");
-    if (n == 1) { 
-        // if n == 1 sorting is not needed
-        RecursiveRollNumberPrinting(rollNumbers, n, 0);    
-    }
-    else {
+    if (n == 1) {
+        RecursiveRollNumberPrinting(rollNumbers, n, 0);
+    } else {
         RecursiveRollNumbersSorting(rollNumbers, n);
         RecursiveRollNumberPrinting(rollNumbers, n, 0);
     }
+    printf("\n");
+}
+
+int main() {
+    int n;
+    // number of students
+    scanf("%d", &n);
+    if (n < 1) {
+        printf("Invalid input\n");
+        return 0;
+    }
+
+    struct student newStudents[n];
+    int rollNumbers[n];
+
+    inputStudents(newStudents, rollNumbers, n);
+    displayPerformance(newStudents, n);
+    displayRollNumbers(rollNumbers, n);
+
     return 0;
 }
