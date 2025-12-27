@@ -1,54 +1,46 @@
 #include <stdio.h>
-#include <sys/ipc.h>
 #include <sys/shm.h>
-#include <unistd.h>
-#include <sys/wait.h>
+#include <stdlib.h>
 
-// Function to sort shared memory data 
-void sortArray(int array[], int size) {
-    int i, j, temp;
-    for(i = 0; i < size - 1; i++) {
+// Swap function 
+void swap(int *a, int *b) {
+    int temp = *a;
+    *a = *b;
+    *b = temp;
+}
+
+// Sort function
+void sortArray(int arr[], int size) {
+    int i, j;
+    for(i = 0; i < size; i++) {
         for(j = i + 1; j < size; j++) {
-            if(array[i] > array[j]) {
-                temp = array[i];
-                array[i] = array[j];
-                array[j] = temp;
+            if(arr[i] > arr[j]) {
+                swap(&arr[i], &arr[j]);
             }
         }
     }
 }
 
 int main() {
-    int sharedMemoryId;
-    int *sharedData;
-    int i;
-    sharedMemoryId = shmget(1234, 1024, 0666 | IPC_CREAT);
-    sharedData = (int *)shmat(sharedMemoryId, NULL, 0);
+    int shmid = shmget(IPC_PRIVATE, 1024, 0666 | IPC_CREAT);
+    int *shared = (int *)shmat(shmid, NULL, 0);
     if(fork() == 0) {
-        sleep(1);
-        sortArray(&sharedData[1], sharedData[0]);
-        shmdt(sharedData);
-    } 
+        sortArray(shared + 1, shared[0]);
+    }
     else {
+        int i;
         printf("Enter number of elements: ");
-        scanf("%d", &sharedData[0]);
-        printf("Enter elements:\n");
-        for(i = 1; i <= sharedData[0]; i++) {
-            scanf("%d", &sharedData[i]);
+        scanf("%d", &shared[0]);
+        for(i = 1; i <= shared[0]; i++) {
+            scanf("%d", &shared[i]);
         }
-        printf("Before sorting:\n");
-        for(i = 1; i <= sharedData[0]; i++) {
-            printf("%d ", sharedData[i]);
-        }
-        printf("\n");
         wait(NULL);
-        printf("After sorting:\n");
-        for(i = 1; i <= sharedData[0]; i++) {
-            printf("%d ", sharedData[i]);
+        printf("Sorted Array:\n");
+        for(i = 1; i <= shared[0]; i++) {
+            printf("%d ", shared[i]);
         }
-        printf("\n");
-        shmdt(sharedData);
-        shmctl(sharedMemoryId, IPC_RMID, NULL);
+        shmdt(shared);
+        shmctl(shmid, IPC_RMID, NULL);
     }
     return 0;
 }

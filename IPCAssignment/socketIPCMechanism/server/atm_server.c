@@ -1,74 +1,80 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
-#include <arpa/inet.h>
 #include <pthread.h>
+#include <netinet/in.h>
+#include <unistd.h>
 
-#define PORT 8080
-#define DATABASE_PATH "../resource/accountDB.txt"
+pthread_mutex_t mutex;
 
-pthread_mutex_t fileMutex;
+// Function to read balance 
+int readBalance() {
+    FILE *file = fopen("resource/accountDB.txt", "r");
+    if(file == NULL) {
+        return 0;
+    }
+    int balance;
+    fscanf(file, "%d", &balance);
+    fclose(file);
+    return balance;
+}
 
-// Function to handle individual client ATM requests 
-void *handleClientRequest(void *clientSocketPointer) {
-    int clientSocket = *(int *)clientSocketPointer;
-    int choice, amount, balance;
-    FILE *filePointer;
-    read(clientSocket, &choice, sizeof(int));
-    pthread_mutex_lock(&fileMutex);
-    filePointer = fopen(DATABASE_PATH, "r");
-    fscanf(filePointer, "%d", &balance);
-    fclose(filePointer);
+// Function to write balance 
+void writeBalance(int balance) {
+    FILE *file = fopen("resource/accountDB.txt", "w");
+    if(file != NULL){
+        fprintf(file, "%d", balance);
+        fclose(file);
+    }
+}
+
+/* Client handler */
+void *handleClient(void *socketDesc) {
+    int clientSocket = *(int *)socketDesc;
+    int choice, amount;
+    pthread_mutex_lock(&mutex);
+    read(clientSocket, &choice, sizeof(choice));
     if(choice == 1) {
-        read(clientSocket, &amount, sizeof(int));
+        read(clientSocket, &amount, sizeof(amount));
+        int balance = readBalance();
         if(amount <= balance) {
             balance = balance - amount;
-        } else {
-            balance = -1;
+            writeBalance(balance);
+            write(clientSocket, &balance, sizeof(balance));
         }
-        write(clientSocket, &balance, sizeof(int));
+        else {
+            int fail = -1;
+            write(clientSocket, &fail, sizeof(fail));
+        }
     }
     if(choice == 2) {
-        read(clientSocket, &amount, sizeof(int));
+        read(clientSocket, &amount, sizeof(amount));
+        int balance = readBalance();
         balance = balance + amount;
-        write(clientSocket, &balance, sizeof(int));
+        writeBalance(balance);
+        write(clientSocket, &balance, sizeof(balance));
     }
     if(choice == 3) {
-        write(clientSocket, &balance, sizeof(int));
+        int balance = readBalance();
+        write(clientSocket, &balance, sizeof(balance));
     }
-    if(balance != -1) {
-        filePointer = fopen(DATABASE_PATH, "w");
-        fprintf(filePointer, "%d", balance);
-        fclose(filePointer);
-    }
-    pthread_mutex_unlock(&fileMutex);
+    pthread_mutex_unlock(&mutex);
     close(clientSocket);
-    free(clientSocketPointer);
     return NULL;
 }
 
 int main() {
-    int serverSocket, clientSocket;
-    struct sockaddr_in serverAddress, clientAddress;
-    socklen_t addressLength;
-    pthread_t threadId;
-    pthread_mutex_init(&fileMutex, NULL);
-    serverSocket = socket(AF_INET, SOCK_STREAM, 0);
-    serverAddress.sin_family = AF_INET;
-    serverAddress.sin_port = htons(PORT);
-    serverAddress.sin_addr.s_addr = INADDR_ANY;
-    bind(serverSocket, (struct sockaddr *)&serverAddress, sizeof(serverAddress));
+    int serverSocket = socket(AF_INET, SOCK_STREAM, 0);
+    struct sockaddr_in serverAddr;
+    serverAddr.sin_family = AF_INET;
+    serverAddr.sin_addr.s_addr = INADDR_ANY;
+    serverAddr.sin_port = htons(8080);
+    bind(serverSocket, (struct sockaddr *)&serverAddr, sizeof(serverAddr));
     listen(serverSocket, 5);
-    printf("ATM Server running on port %d\n", PORT);
+    pthread_mutex_init(&mutex, NULL);
     while(1) {
-        addressLength = sizeof(clientAddress);
-        clientSocket = accept(serverSocket, (struct sockaddr *)&clientAddress, &addressLength);
-        int *clientSocketPointer = malloc(sizeof(int));
-        *clientSocketPointer = clientSocket;
-        pthread_create(&threadId, NULL, handleClientRequest, clientSocketPointer);
-        pthread_detach(threadId);
+        int clientSocket = accept(serverSocket, NULL, NULL);
+        pthread_t thread;
+        pthread_create(&thread, NULL, handleClient, &clientSocket);
     }
-    close(serverSocket);
-    pthread_mutex_destroy(&fileMutex);
     return 0;
 }

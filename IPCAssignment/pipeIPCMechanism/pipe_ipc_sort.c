@@ -1,57 +1,51 @@
 #include <stdio.h>
 #include <unistd.h>
-#include <sys/wait.h>
+#include <stdlib.h>
 
-// Function to sort an integer array 
-void sortArray(int array[], int size) {
-    int i, j, temp;
-    for(i = 0; i < size - 1; i++) {
+// Function to swap values 
+void swap(int *a, int *b) {
+    int temp = *a;
+    *a = *b;
+    *b = temp;
+}
+
+// Function to sort array 
+void sortArray(int arr[], int size){
+    int i, j;
+    for(i = 0; i < size; i++) {
         for(j = i + 1; j < size; j++) {
-            if(array[i] > array[j]) {
-                temp = array[i];
-                array[i] = array[j];
-                array[j] = temp;
+            if(arr[i] > arr[j]) {
+                swap(&arr[i], &arr[j]);
             }
         }
     }
 }
 
 int main() {
-    int pipeToChild[2], pipeToParent[2];
-    int size, array[100], i;
-    pipe(pipeToChild);
-    pipe(pipeToParent);
+    int pipeParentToChild[2], pipeChildToParent[2];
+    pipe(pipeParentToChild);
+    pipe(pipeChildToParent);
     if(fork() == 0) {
-        close(pipeToChild[1]);
-        close(pipeToParent[0]);
-        read(pipeToChild[0], &size, sizeof(int));
-        read(pipeToChild[0], array, size * sizeof(int));
-        sortArray(array, size);
-        write(pipeToParent[1], array, size * sizeof(int));
-    } 
+        int size, arr[50];
+        read(pipeParentToChild[0], &size, sizeof(size));
+        read(pipeParentToChild[0], arr, sizeof(int) * size);
+        sortArray(arr, size);
+        write(pipeChildToParent[1], arr, sizeof(int) * size);
+    }
     else {
-        close(pipeToChild[0]);
-        close(pipeToParent[1]);
+        int size, i, arr[50];
         printf("Enter number of elements: ");
         scanf("%d", &size);
-        printf("Enter elements:\n");
         for(i = 0; i < size; i++) {
-            scanf("%d", &array[i]);
+            scanf("%d", &arr[i]);
         }
-        printf("Before sorting:\n");
+        write(pipeParentToChild[1], &size, sizeof(size));
+        write(pipeParentToChild[1], arr, sizeof(int) * size);
+        read(pipeChildToParent[0], arr, sizeof(int) * size);
+        printf("Sorted Array:\n");
         for(i = 0; i < size; i++) {
-            printf("%d ", array[i]);
+            printf("%d ", arr[i]);
         }
-        printf("\n");
-        write(pipeToChild[1], &size, sizeof(int));
-        write(pipeToChild[1], array, size * sizeof(int));
-        read(pipeToParent[0], array, size * sizeof(int));
-        printf("After sorting:\n");
-        for(i = 0; i < size; i++) {
-            printf("%d ", array[i]);
-        }
-        printf("\n");
-        wait(NULL);
     }
     return 0;
 }
